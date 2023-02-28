@@ -1,6 +1,11 @@
+import com.google.gson.Gson;
+import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
+import model.Epic;
+import model.SubTask;
+import model.Task;
 import service.FileBackedTasksManager;
 import service.Managers;
 import service.TaskManager;
@@ -9,20 +14,37 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
-import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.Executor;
+import java.util.regex.Pattern;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class HttpTaskServer {
     private static final int PORT = 8080;
     private static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
-    static FileBackedTasksManager taskManager = new FileBackedTasksManager(new File("httpFile.csv"));
+    static Gson gson;
+    private HttpServer httpServer;
 
-    public static void main(String[] args) throws IOException {
-        HttpServer httpServer = HttpServer.create(new InetSocketAddress(PORT), 0);
+    static TaskManager taskManager = Managers.getFileBackedTasksManager(new File("httpFile.csv"));
+
+
+    public HttpTaskServer(TaskManager taskManager) throws IOException {
+        this.taskManager = taskManager;
+        gson = Managers.getGson();
+        httpServer = HttpServer.create(new InetSocketAddress(PORT), 0);
         httpServer.createContext("/tasks", new TasksHandler());
-        System.out.println("Поехали");
+    }
+
+    public void start() {
         httpServer.start();
+    }
+    public static void main(String[] args) throws IOException {
+        System.out.println("Поехали");
+        TaskManager taskManager = Managers.getFileBackedTasksManager(new File("httpFile.csv"));
+        HttpTaskServer httpTaskServer = new HttpTaskServer(taskManager);
+        httpTaskServer.start();
     }
 
     static class TasksHandler implements HttpHandler {
@@ -33,122 +55,214 @@ public class HttpTaskServer {
 
         @Override
         public void handle(HttpExchange httpExchange) throws IOException {
-            System.out.println("пытаемся запустить");
-            uriSplit(httpExchange);
-
-            String method = httpExchange.getRequestMethod();
-
-            switch (method) {
-                case "DELETE":
-                    if ((uriLenght == 2)) { //если "удаление" и длинна пути всего 2, то удаляются все задачи из типа
-                        switch (taskType) {
-                            case "task":
-                                taskManager.deleteTask();
-                                System.out.println("удалили таски");
-                                break;
-                            case "epic":
-                                taskManager.deleteEpic();
-                                System.out.println("удалили эпики");
-                                break;
-                            case "subtask":
-                                taskManager.deleteSubTask();
-                                System.out.println("удалили сабтаски");
-                                break;
-                        }
-                    } else {
-                        switch (taskType) { //здесь уже нужен айди
-                            case "task":
+            try {
+                String path = httpExchange.getRequestURI().getPath();
+                String method = httpExchange.getRequestMethod();
+                switch (method) {
+                    case "DELETE":
+                        if (Pattern.matches("^/tasks/task/?id=\\d+$", path)) {
+                            String pathId = path.replaceFirst("/tasks/task/?id=", "");
+                            int id = parsePathId(pathId);
+                            if (id != -1) {
                                 taskManager.deleteTaskForId(id);
-                                System.out.println("удалили таск");
-                                break;
-                            case "epic":
+                                httpExchange.sendResponseHeaders(200, 0);
+                                System.out.println("Задача " + id + " удаленна");
+                            } else {
+                                System.out.println("Неверный id -" + id);
+                                httpExchange.sendResponseHeaders(405, 0);
+                            }
+                        } else if (Pattern.matches("^/tasks/epic/?id=\\d+$", path)) {
+                            String pathId = path.replaceFirst("/tasks/epic/?id=", "");
+                            int id = parsePathId(pathId);
+                            if (id != -1) {
                                 taskManager.deleteEpicForId(id);
-                                System.out.println("удалили эпик");
-                                break;
-                            case "subtask":
+                                httpExchange.sendResponseHeaders(200, 0);
+                                System.out.println("Эпик " + id + " удаленна");
+                            } else {
+                                System.out.println("Неверный id -" + id);
+                                httpExchange.sendResponseHeaders(405, 0);
+                            }
+                        } else if (Pattern.matches("^/tasks/subtask/?id=\\d+$", path)) {
+                            String pathId = path.replaceFirst("/tasks/subtask/?id=", "");
+                            int id = parsePathId(pathId);
+                            if (id != -1) {
                                 taskManager.deleteSubTaskForId(id);
-                                System.out.println("удалили саб");
-                                break;
+                                httpExchange.sendResponseHeaders(200, 0);
+                                System.out.println("Подзадача " + id + " удаленна");
+                            } else {
+                                System.out.println("Неверный id -" + id);
+                                httpExchange.sendResponseHeaders(405, 0);
+                            }
+                        } else if (Pattern.matches("^/tasks/task/$", path)) {
+                            taskManager.deleteTask();
+                            System.out.println("Удаленны все задачи");
+                            httpExchange.sendResponseHeaders(200, 0);
+                        } else if (Pattern.matches("^/tasks/epic/$", path)) {
+                            taskManager.deleteEpic();
+                            System.out.println("Удаленны все эпики");
+                            httpExchange.sendResponseHeaders(200, 0);
+                        } else if (Pattern.matches("^/tasks/subtask/$", path)) {
+                            taskManager.deleteSubTask();
+                            System.out.println("Удаленны все подзадачи");
+                            httpExchange.sendResponseHeaders(200, 0);
+                        } else {
+                            System.out.println("Ошибка пути удаления задачи");
+                            httpExchange.sendResponseHeaders(405, 0);
                         }
+                        break;
+                    case "GET":
+                        if (Pattern.matches("^/tasks/task/$", path)) {
+                            String answer = gson.toJson(taskManager.getTasks());
+                            sendText(httpExchange, answer);
+                            System.out.println("Получены все задачи");
+                            httpExchange.sendResponseHeaders(200, 0);
+                        } else if (Pattern.matches("^/tasks/epic/$", path)) {
+                            String answer = gson.toJson(taskManager.getEpics());
+                            sendText(httpExchange, answer);
+                            System.out.println("Получены все эпики");
+                            httpExchange.sendResponseHeaders(200, 0);
+                        } else if (Pattern.matches("^/tasks/subtask/$", path)) {
+                            String answer = gson.toJson(taskManager.getSubTasks());
+                            sendText(httpExchange, answer);
+                            System.out.println("Получены все подзадачи");
+                            httpExchange.sendResponseHeaders(200, 0);
+                        } else if (Pattern.matches("^/tasks/task/?id=\\d+$", path)) {
+                            String pathId = path.replaceFirst("/tasks/task/?id=", "");
+                            int id = parsePathId(pathId);
+                            if (id != -1) {
+                                String answer = gson.toJson(taskManager.getTask(id));
+                                sendText(httpExchange, answer);
+                                httpExchange.sendResponseHeaders(200, 0);
+                                System.out.println("Задача " + id + " получена");
+                            } else {
+                                System.out.println("Неверный id -" + id);
+                                httpExchange.sendResponseHeaders(405, 0);
+                            }
+                        } else if (Pattern.matches("^/tasks/epic/?id=\\d+$", path)) {
+                            String pathId = path.replaceFirst("/tasks/epic/?id=", "");
+                            int id = parsePathId(pathId);
+                            if (id != -1) {
+                                String answer = gson.toJson(taskManager.getEpic(id));
+                                sendText(httpExchange, answer);
+                                httpExchange.sendResponseHeaders(200, 0);
+                                System.out.println("Эпик " + id + " получен");
+                            } else {
+                                System.out.println("Неверный id -" + id);
+                                httpExchange.sendResponseHeaders(405, 0);
+                            }
+                        } else if (Pattern.matches("^/tasks/subtask/?id=\\d+$", path)) {
+                            String pathId = path.replaceFirst("/tasks/subtask/?id=", "");
+                            int id = parsePathId(pathId);
+                            if (id != -1) {
+                                String answer = gson.toJson(taskManager.getSubTask(id));
+                                sendText(httpExchange, answer);
+                                httpExchange.sendResponseHeaders(200, 0);
+                                System.out.println("Подзадача " + id + " получена");
+                            } else {
+                                System.out.println("Неверный id -" + id);
+                                httpExchange.sendResponseHeaders(405, 0);
+                            }
+                        } else if (Pattern.matches("^/tasks/subtask/epic/?id=\\d+$", path)) {
+                            String pathId = path.replaceFirst("/tasks/subtask/epic/?id=", "");
+                            int id = parsePathId(pathId);
+                            if (id != -1) {
+                                String answer = gson.toJson(taskManager.getSubtasksByEpic(id));
+                                sendText(httpExchange, answer);
+                                httpExchange.sendResponseHeaders(200, 0);
+                                System.out.println("Подзадачи эпика " + id + " получены");
+                            } else {
+                                System.out.println("Неверный id -" + id);
+                                httpExchange.sendResponseHeaders(405, 0);
+                            }
+                        } else if (Pattern.matches("^/tasks/history$", path)) {
+                            String answer = gson.toJson(taskManager.getHistory());
+                            sendText(httpExchange, answer);
+                            System.out.println("История получена");
+                            httpExchange.sendResponseHeaders(200, 0);
+                        } else if (Pattern.matches("^/tasks/$", path)) {
+                            String answer = gson.toJson(taskManager.getPrioritizedTasks());
+                            sendText(httpExchange, answer);
+                            System.out.println("Сортированный список получен");
+                            httpExchange.sendResponseHeaders(200, 0);
+                        } else {
+                            System.out.println("Ошибка пути получения задачи");
+                            httpExchange.sendResponseHeaders(405, 0);
+                        }
+                        break;
+                    case "POST":
+                        if (Pattern.matches("^/tasks/task/", path)) {
+                            InputStream input = httpExchange.getRequestBody();
+                            String taskString = new String(input.readAllBytes(), DEFAULT_CHARSET);
+                            Task task = gson.fromJson(taskString, Task.class);
+                            if (taskManager.getTasks().contains(task)) {
+                                taskManager.updateTask(task);
+                                httpExchange.sendResponseHeaders(200, 0);
+                                System.out.println("Задача успешно заменена");
+                            } else {
+                                taskManager.addTask(task);
+                                httpExchange.sendResponseHeaders(200, 0);
+                                System.out.println("Задача успешно добавлена");
+                            }
+                        } else if (Pattern.matches("^/tasks/epic/", path)) {
+                            InputStream input = httpExchange.getRequestBody();
+                            String epicString = new String(input.readAllBytes(), DEFAULT_CHARSET);
+                            Epic epic = gson.fromJson(epicString, Epic.class);
+                            if (taskManager.getEpics().contains(epic)) {
+                                taskManager.updateEpic(epic);
+                                httpExchange.sendResponseHeaders(200, 0);
+                                System.out.println("Эпик успешно заменен");
+                            } else {
+                                taskManager.addEpic(epic);
+                                httpExchange.sendResponseHeaders(200, 0);
+                                System.out.println("Эпик успешно добавлен");
+                            }
+                        } else if (Pattern.matches("^/tasks/subtask/", path)) {
+                            InputStream input = httpExchange.getRequestBody();
+                            String subtaskString =
+                                    new String(input.readAllBytes(), DEFAULT_CHARSET);
+                            SubTask subtask = gson.fromJson(subtaskString, SubTask.class);
+                            if (taskManager.getSubTasks().contains(subtask)) {
+                                taskManager.updateSubTask(subtask);
+                                httpExchange.sendResponseHeaders(200, 0);
+                                System.out.println("Подзадача успешно заменена");
+                            } else {
+                                taskManager.addSubTask(subtask);
+                                System.out.println(subtaskString);
+                                httpExchange.sendResponseHeaders(200, 0);
+                                System.out.println("Подзадача успешно добавлена");
+                            }
+                        } else {
+                            httpExchange.sendResponseHeaders(405, 0);
+                            System.out.println("Произошли технические шоколадки");
+                        }
+                        break;
+                    default: {
+                        System.out.println("Неизвестный запрос - " + method);
+                        httpExchange.sendResponseHeaders(405, 0);
                     }
-                case "GET":
-                    switch (uriLenght) {
-                        case 1://по схеме задания надо вроде возвращать сортированнаый список
-                            taskManager.getPrioritizedTasks();
-                            System.out.println("удалили таск");
-                            break;
-                        case 2://здесь просто возвращаются все задачи из типа и история
-                            switch (taskType) {
-                                case "task":
-                                    taskManager.getTasks();
-                                    System.out.println("получили таск");
-                                    break;
-                                case "epic":
-                                    taskManager.getEpics();
-                                    System.out.println("получили эпик");
-                                    break;
-                                case "subtask":
-                                    taskManager.getSubTasks();
-                                    System.out.println("получили саб");
-                                    break;
-                                case "history":
-                                    taskManager.getHistory();
-                                    System.out.println("получили историю");
-                                    break;
-                            }
-                            break;
-                        case 3://а здесь уже по айди
-                            switch (taskType) {
-                                case "task":
-                                    taskManager.getTask(id);
-                                    System.out.println("получили таск ай");
-                                    break;
-                                case "epic":
-                                    taskManager.getEpic(id);
-                                    System.out.println("получили эпик ай");
-                                    break;
-                                case "subtask":
-                                    taskManager.getSubTask(id);
-                                    System.out.println("получили саб ай");
-                                    break;
-                            }
-                            break;
+                }
 
-                    }
-                case "POST":
-                    taskManager.fromString(body); /*наверно можно было использовать этот метод,
-                     иначе если создавать новый, то он будет точной копией */
-                    System.out.println("создали задачу");
-                    break;
+            } catch (Exception e) {
+                e.getMessage();
+            } finally {
+                httpExchange.close();
             }
         }
 
-
-        public void uriSplit(HttpExchange httpExchange) throws IOException {
-            System.out.println("здесь? запустить");
-            URI requestURI = httpExchange.getRequestURI();
-            String path = requestURI.getPath();
-            String[] action = path.split("/");
-            if (action.length == 2) { //если длинна всего 2, то колличество возможных вариантов действий сокращается
-                uriLenght = 1;
-                System.out.println("1");
-            } else if (action.length == 3) { //если 3, то надо узнать тип задачи с которой будут что-то делать
-                taskType = action[2];
-                InputStream inputStream = httpExchange.getRequestBody();
-                body = new String(inputStream.readAllBytes(), DEFAULT_CHARSET);
-                uriLenght = 2;
-                System.out.println("2");
-            } else if (action.length == 4) { //здесь уже и айди нужен
-                taskType = action[2];
-                String split = action[3];
-                int number = split.indexOf("=");
-                id = Integer.parseInt(split.substring(number + 1));
-                uriLenght = 3;
-                System.out.println("3");
+        private int parsePathId(String path) {
+            try {
+                return Integer.parseInt(path);
+            } catch (NumberFormatException e) {
+                return -1;
             }
         }
 
+        protected void sendText(HttpExchange h, String text) throws IOException {
+            byte[] resp = text.getBytes(UTF_8);
+            h.getResponseHeaders().add("Content-Type", "application/json");
+            h.sendResponseHeaders(200, resp.length);
+            h.getResponseBody().write(resp);
         }
+
     }
-
-
+}
