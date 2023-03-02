@@ -1,12 +1,14 @@
-import static java.nio.charset.StandardCharsets.UTF_8;
+package service;
+
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpServer;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
  * Постман: https://www.getpostman.com/collections/a83b61d9e1c81c10575c
@@ -26,8 +28,32 @@ public class KVServer {
     }
 
     private void load(HttpExchange h) {
-// TODO Добавьте получение значения по ключу
+        // TODO Добавьте получение значения по ключу
+        try {
+            System.out.println("\n/load");
+            String path = h.getRequestURI().getPath();
+            if ("GET".equals(h.getRequestMethod())) {
+                String key = h.getRequestURI().getPath().substring("/save/".length());
+                if(!data.containsKey(key)) {
+                    System.out.println("ключ " + key + "не найден");
+                    h.sendResponseHeaders(404, 0);
+                    return;
+                }
+                String value = data.get(key);
+                sendText(h, value);
+                h.sendResponseHeaders(200, 0);
+            } else {
+                System.out.println("/load ждёт GET-запрос, а получил: " + h.getRequestMethod());
+                h.sendResponseHeaders(405, 0);
+            }
+        } catch (IOException e) {
+            e.getMessage();
+        } finally {
+            h.close();
+        }
+
     }
+
 
     private void save(HttpExchange h) throws IOException {
         try {
@@ -78,7 +104,6 @@ public class KVServer {
 
     public void start() {
         System.out.println("Запускаем сервер на порту " + PORT);
-        System.out.println("Открой в браузере http://localhost:" + PORT + "/");
         System.out.println("API_TOKEN: " + apiToken);
         server.start();
     }
@@ -103,3 +128,4 @@ public class KVServer {
         h.getResponseBody().write(resp);
     }
 }
+

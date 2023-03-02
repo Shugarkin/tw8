@@ -3,18 +3,22 @@ package service;
 import model.*;
 
 import java.io.*;
+import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.List;
 
 
 public class FileBackedTasksManager extends InMemoryTaskManager {
     private static final String HEADER = "id,type,name,status,description,start,finish/duration,epicId/duration";
-    private final File file;
+    private File file;
     public FileBackedTasksManager(File file) {
         this.file = file;
     }
 
-    private void save() { //метод для добавления списка задач и истории в файл
+    public FileBackedTasksManager() {
+    }
+
+    protected void save() { //метод для добавления списка задач и истории в файл
         try (Writer fileWriter = new FileWriter(file)) {
             StringBuilder sb = new StringBuilder();
             sb.append(HEADER); //Заголовок файла, вынесенный в поля класса в виде статической константы
@@ -87,7 +91,7 @@ public class FileBackedTasksManager extends InMemoryTaskManager {
             int epicId = Integer.parseInt(split[7]);
             task = new SubTask(id, title, description, status, start, duration, epicId);
             subTasks.put(id, (SubTask) task);
-            epics.get(((SubTask) task).getEpicId()).addSubTaskId(id);
+            epics.get(((SubTask) task).getEpicId()).getSubTaskId().add(id);
             prioritizedTasks.add(task);
         }
         return task;
@@ -165,6 +169,7 @@ public class FileBackedTasksManager extends InMemoryTaskManager {
         super.deleteEpic();
         save();
     }
+
     @Override
     public void deleteSubTask() {//очищает подзадачи
         super.deleteSubTask();
@@ -223,6 +228,7 @@ public class FileBackedTasksManager extends InMemoryTaskManager {
         save();
         return subTask;
     }
+
 
 }
 

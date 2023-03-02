@@ -1,32 +1,36 @@
-import model.Epic;
-import model.Status;
-import model.SubTask;
-import model.Task;
 import service.*;
 
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.time.Month;
+import java.io.IOException;
+import java.net.URI;
 
 public class Main {
 
-    public static void main(String[] args) {
-        TaskManager taskManager = Managers.getDefault();
+    public static void main(String[] args) throws IOException, InterruptedException {
+//
+//        taskManager.addTask(new Task("Наладить личную жизнь", "Tinder в помощь", Status.IN_PROGRESS,
+//        LocalDateTime.of(2023, Month.JANUARY,01,12,00), 30));
+//
+//        Epic epic = new Epic("Прогулка", "Прогулка по парку");
+//        taskManager.addEpic(epic);
+//
+//        taskManager.addSubTask(new SubTask("Одеться", "Как без одежды то", Status.NEW,
+//                LocalDateTime.of(2023, Month.JANUARY, 2, 12, 10), 30, 2));
+//        taskManager.addSubTask(new SubTask("Выйти на улицу", "Дома же не погуляешь", Status.DONE,
+//                LocalDateTime.of(2022, Month.JANUARY, 10, 12, 15), 60, 2));
+//        taskManager.addSubTask(new SubTask("Я все таки смог", "Решить этот спринт", Status.DONE,
+//                LocalDateTime.of(2023, Month.FEBRUARY, 10, 00, 00), 60,2));
+//
+//        taskManager.addEpic(new Epic("Приборка дома", "Как бы грязно уже"));
+        new KVServer().start();
 
-        taskManager.addTask(new Task("Наладить личную жизнь", "Tinder в помощь", Status.IN_PROGRESS,
-        LocalDateTime.of(2023, Month.JANUARY,01,12,00), 30));
+        TaskManager taskManager = Managers.getDefault(URI.create("http://localhost:8080"));
+        new HttpTaskServer(taskManager).start();
 
-        Epic epic = new Epic("Прогулка", "Прогулка по парку");
-        taskManager.addEpic(epic);
 
-        taskManager.addSubTask(new SubTask("Одеться", "Как без одежды то", Status.NEW,
-                LocalDateTime.of(2023, Month.JANUARY, 2, 12, 10), 30, 2));
-        taskManager.addSubTask(new SubTask("Выйти на улицу", "Дома же не погуляешь", Status.DONE,
-                LocalDateTime.of(2022, Month.JANUARY, 10, 12, 15), 60, 2));
-        taskManager.addSubTask(new SubTask("Я все таки смог", "Решить этот спринт", Status.DONE,
-                LocalDateTime.of(2023, Month.FEBRUARY, 10, 00, 00), 60,2));
 
-        taskManager.addEpic(new Epic("Приборка дома", "Как бы грязно уже"));
+
+
+
 
         /*
         // удаление все задач

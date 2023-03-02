@@ -1,22 +1,21 @@
+package service;
+
 import com.google.gson.Gson;
-import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import model.Epic;
 import model.SubTask;
 import model.Task;
-import service.FileBackedTasksManager;
-import service.Managers;
-import service.TaskManager;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
+import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.util.concurrent.Executor;
+import java.util.ArrayList;
 import java.util.regex.Pattern;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -27,8 +26,8 @@ public class HttpTaskServer {
     static Gson gson;
     private HttpServer httpServer;
 
-    static TaskManager taskManager = Managers.getFileBackedTasksManager(new File("httpFile.csv"));
-
+     //static TaskManager taskManager = Managers.getFileBackedTasksManager(new File("httpFile.csv"));
+    static  TaskManager taskManager;
 
     public HttpTaskServer(TaskManager taskManager) throws IOException {
         this.taskManager = taskManager;
@@ -38,23 +37,20 @@ public class HttpTaskServer {
     }
 
     public void start() {
+        System.out.println("HttpTaskServer запущен на " + PORT);
         httpServer.start();
     }
-    public static void main(String[] args) throws IOException {
-        System.out.println("Поехали");
-        TaskManager taskManager = Managers.getFileBackedTasksManager(new File("httpFile.csv"));
-        HttpTaskServer httpTaskServer = new HttpTaskServer(taskManager);
-        httpTaskServer.start();
-    }
+
+//    public static void main(String[] args) throws IOException {
+//        System.out.println("Поехали212412");
+//        //TaskManager taskManager = Managers.getFileBackedTasksManager(new File("httpFile.csv"));
+//        HttpTaskServer httpTaskServer = new HttpTaskServer(taskManager);
+//        httpTaskServer.start();
+//    }
 
     static class TasksHandler implements HttpHandler {
-        private int id = 0; //для вычисления айди
-        private String taskType = null; //для вычисления типа задачи
-        private int uriLenght = 0; //для определения длинны пути
-        private String body = null; // для создания задачи
-
         @Override
-        public void handle(HttpExchange httpExchange) throws IOException {
+        public void handle(HttpExchange httpExchange) {
             try {
                 String path = httpExchange.getRequestURI().getPath();
                 String method = httpExchange.getRequestMethod();
@@ -207,6 +203,7 @@ public class HttpTaskServer {
                             InputStream input = httpExchange.getRequestBody();
                             String epicString = new String(input.readAllBytes(), DEFAULT_CHARSET);
                             Epic epic = gson.fromJson(epicString, Epic.class);
+                            epic.setSubTaskIds(new ArrayList<>());//иначе поле subtaskIds выдает null если его не указывать при создании
                             if (taskManager.getEpics().contains(epic)) {
                                 taskManager.updateEpic(epic);
                                 httpExchange.sendResponseHeaders(200, 0);
@@ -227,7 +224,6 @@ public class HttpTaskServer {
                                 System.out.println("Подзадача успешно заменена");
                             } else {
                                 taskManager.addSubTask(subtask);
-                                System.out.println(subtaskString);
                                 httpExchange.sendResponseHeaders(200, 0);
                                 System.out.println("Подзадача успешно добавлена");
                             }
@@ -241,7 +237,6 @@ public class HttpTaskServer {
                         httpExchange.sendResponseHeaders(405, 0);
                     }
                 }
-
             } catch (Exception e) {
                 e.getMessage();
             } finally {
