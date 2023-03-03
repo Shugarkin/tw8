@@ -47,8 +47,8 @@ public class InMemoryTaskManager implements TaskManager {
     public void addSubTask(SubTask subTask){ //добавление сабзадач
         intersections(subTask);
         subTask.setId(nextId++);
-        subTasks.put(subTask.getId(), subTask);
         epics.get(subTask.getEpicId()).getSubTaskId().add(subTask.getId());
+        subTasks.put(subTask.getId(), subTask);
         checkStatus(subTask.getEpicId());
         dateEpicCheck(subTask.getEpicId());
         prioritizedTasks.add(subTask);

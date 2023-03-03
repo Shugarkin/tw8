@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 public class Managers {
     private Managers() {
     }
-    public static TaskManager getDefault(URI uri){
+    public static HttpTaskManager getDefault(URI uri){
         return new HttpTaskManager(uri);
     }
     public static HistoryManager getDefaultHistory() {
@@ -22,8 +22,7 @@ public class Managers {
     }
     public static Gson getGson() {
         GsonBuilder gsonBuilder = new GsonBuilder();
-        gsonBuilder.registerTypeAdapter(LocalDateTime.class, new LocalDateTimeAdapter())
-                 .serializeNulls();
+        gsonBuilder.registerTypeAdapter(LocalDateTime.class, new LocalDateTimeAdapter());
         Gson gson = gsonBuilder.create();
         return gson;
     }

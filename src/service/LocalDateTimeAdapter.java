@@ -7,6 +7,7 @@ import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Optional;
 
 class LocalDateTimeAdapter extends TypeAdapter<LocalDateTime> {
     private static final DateTimeFormatter formatterWriter = DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm");
@@ -14,7 +15,7 @@ class LocalDateTimeAdapter extends TypeAdapter<LocalDateTime> {
 
     @Override
     public void write(final JsonWriter jsonWriter, LocalDateTime localDate) throws IOException {
-        jsonWriter.value(localDate.format(formatterWriter));
+            jsonWriter.value(localDate.format(formatterWriter));
     }
 
     @Override

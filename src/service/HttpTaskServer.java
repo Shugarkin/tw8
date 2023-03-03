@@ -8,11 +8,9 @@ import model.Epic;
 import model.SubTask;
 import model.Task;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
-import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -25,8 +23,6 @@ public class HttpTaskServer {
     private static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
     static Gson gson;
     private HttpServer httpServer;
-
-     //static TaskManager taskManager = Managers.getFileBackedTasksManager(new File("httpFile.csv"));
     static  TaskManager taskManager;
 
     public HttpTaskServer(TaskManager taskManager) throws IOException {
@@ -41,12 +37,9 @@ public class HttpTaskServer {
         httpServer.start();
     }
 
-//    public static void main(String[] args) throws IOException {
-//        System.out.println("Поехали212412");
-//        //TaskManager taskManager = Managers.getFileBackedTasksManager(new File("httpFile.csv"));
-//        HttpTaskServer httpTaskServer = new HttpTaskServer(taskManager);
-//        httpTaskServer.start();
-//    }
+    public void stop() {
+        httpServer.stop(1);
+    }
 
     static class TasksHandler implements HttpHandler {
         @Override
@@ -56,111 +49,123 @@ public class HttpTaskServer {
                 String method = httpExchange.getRequestMethod();
                 switch (method) {
                     case "DELETE":
-                        if (Pattern.matches("^/tasks/task/?id=\\d+$", path)) {
-                            String pathId = path.replaceFirst("/tasks/task/?id=", "");
-                            int id = parsePathId(pathId);
-                            if (id != -1) {
-                                taskManager.deleteTaskForId(id);
+                        if (Pattern.matches("^/tasks/task/$", path)) {
+                            if(httpExchange.getRequestURI().getQuery() == null) {
+                                taskManager.deleteTask();
+                                System.out.println("Удаленны все задачи");
                                 httpExchange.sendResponseHeaders(200, 0);
-                                System.out.println("Задача " + id + " удаленна");
                             } else {
-                                System.out.println("Неверный id -" + id);
-                                httpExchange.sendResponseHeaders(405, 0);
+                                String query = httpExchange.getRequestURI().getQuery();
+                                int id = parsePathId(query.replaceFirst("id=", ""));
+                                if (id != -1) {
+                                    taskManager.deleteTaskForId(id);
+                                    httpExchange.sendResponseHeaders(200, 0);
+                                    System.out.println("Задача " + id + " удаленна");
+                                } else {
+                                    System.out.println("Неверный id -" + id);
+                                    httpExchange.sendResponseHeaders(405, 0);
+                                }
                             }
-                        } else if (Pattern.matches("^/tasks/epic/?id=\\d+$", path)) {
-                            String pathId = path.replaceFirst("/tasks/epic/?id=", "");
-                            int id = parsePathId(pathId);
-                            if (id != -1) {
-                                taskManager.deleteEpicForId(id);
-                                httpExchange.sendResponseHeaders(200, 0);
-                                System.out.println("Эпик " + id + " удаленна");
-                            } else {
-                                System.out.println("Неверный id -" + id);
-                                httpExchange.sendResponseHeaders(405, 0);
-                            }
-                        } else if (Pattern.matches("^/tasks/subtask/?id=\\d+$", path)) {
-                            String pathId = path.replaceFirst("/tasks/subtask/?id=", "");
-                            int id = parsePathId(pathId);
-                            if (id != -1) {
-                                taskManager.deleteSubTaskForId(id);
-                                httpExchange.sendResponseHeaders(200, 0);
-                                System.out.println("Подзадача " + id + " удаленна");
-                            } else {
-                                System.out.println("Неверный id -" + id);
-                                httpExchange.sendResponseHeaders(405, 0);
-                            }
-                        } else if (Pattern.matches("^/tasks/task/$", path)) {
-                            taskManager.deleteTask();
-                            System.out.println("Удаленны все задачи");
-                            httpExchange.sendResponseHeaders(200, 0);
                         } else if (Pattern.matches("^/tasks/epic/$", path)) {
-                            taskManager.deleteEpic();
-                            System.out.println("Удаленны все эпики");
-                            httpExchange.sendResponseHeaders(200, 0);
+                             if(httpExchange.getRequestURI().getQuery() == null) {
+                                 taskManager.deleteEpic();
+                                 System.out.println("Удаленны все эпики");
+                                 httpExchange.sendResponseHeaders(200, 0);
+                             } else {
+                                 String query = httpExchange.getRequestURI().getQuery();
+                                 int id = parsePathId(query.replaceFirst("id=", ""));
+                                 if (id != -1) {
+                                     taskManager.deleteEpicForId(id);
+                                     httpExchange.sendResponseHeaders(200, 0);
+                                     System.out.println("Эпик " + id + " удаленна");
+                                 } else {
+                                     System.out.println("Неверный id -" + id);
+                                     httpExchange.sendResponseHeaders(405, 0);
+                                 }
+                             }
                         } else if (Pattern.matches("^/tasks/subtask/$", path)) {
-                            taskManager.deleteSubTask();
-                            System.out.println("Удаленны все подзадачи");
-                            httpExchange.sendResponseHeaders(200, 0);
+                            if(httpExchange.getRequestURI().getQuery() == null) {
+                                taskManager.deleteSubTask();
+                                System.out.println("Удаленны все подзадачи");
+                                httpExchange.sendResponseHeaders(200, 0);
+                            } else {
+                                String query = httpExchange.getRequestURI().getQuery();
+                                int id = parsePathId(query.replaceFirst("id=", ""));
+                                if (id != -1) {
+                                    taskManager.deleteSubTaskForId(id);
+                                    httpExchange.sendResponseHeaders(200, 0);
+                                    System.out.println("Подзадача " + id + " удаленна");
+                                } else {
+                                    System.out.println("Неверный id -" + id);
+                                    httpExchange.sendResponseHeaders(405, 0);
+                                }
+                            }
                         } else {
                             System.out.println("Ошибка пути удаления задачи");
                             httpExchange.sendResponseHeaders(405, 0);
-                        }
+                                }
                         break;
                     case "GET":
                         if (Pattern.matches("^/tasks/task/$", path)) {
-                            String answer = gson.toJson(taskManager.getTasks());
-                            sendText(httpExchange, answer);
-                            System.out.println("Получены все задачи");
-                            httpExchange.sendResponseHeaders(200, 0);
+                            if(httpExchange.getRequestURI().getQuery() == null) {
+                                String answer = gson.toJson(taskManager.getTasks());
+                                sendText(httpExchange, answer);
+                                System.out.println("Получены все задачи");
+                                httpExchange.sendResponseHeaders(200, 0);
+                            } else {
+                                String query = httpExchange.getRequestURI().getQuery();
+                                int id = parsePathId(query.replaceFirst("id=", ""));
+                                if (id != -1) {
+                                    String answer = gson.toJson(taskManager.getTask(id));
+                                    sendText(httpExchange, answer);
+                                    httpExchange.sendResponseHeaders(200, 0);
+                                    System.out.println("Задача " + id + " получена");
+                                } else {
+                                    System.out.println("Неверный id -" + id);
+                                    httpExchange.sendResponseHeaders(405, 0);
+                                }
+                            }
                         } else if (Pattern.matches("^/tasks/epic/$", path)) {
-                            String answer = gson.toJson(taskManager.getEpics());
-                            sendText(httpExchange, answer);
-                            System.out.println("Получены все эпики");
-                            httpExchange.sendResponseHeaders(200, 0);
+                            if(httpExchange.getRequestURI().getQuery() == null) {
+                                String answer = gson.toJson(taskManager.getEpics());
+                                sendText(httpExchange, answer);
+                                System.out.println("Получены все эпики");
+                                httpExchange.sendResponseHeaders(200, 0);
+                            } else {
+                                String query = httpExchange.getRequestURI().getQuery();
+                                int id = parsePathId(query.replaceFirst("id=", ""));
+                                if (id != -1) {
+                                    String answer = gson.toJson(taskManager.getEpic(id));
+                                    sendText(httpExchange, answer);
+                                    httpExchange.sendResponseHeaders(200, 0);
+                                    System.out.println("Эпик " + id + " получен");
+                                } else {
+                                    System.out.println("Неверный id -" + id);
+                                    httpExchange.sendResponseHeaders(405, 0);
+                                }
+                            }
                         } else if (Pattern.matches("^/tasks/subtask/$", path)) {
-                            String answer = gson.toJson(taskManager.getSubTasks());
-                            sendText(httpExchange, answer);
-                            System.out.println("Получены все подзадачи");
-                            httpExchange.sendResponseHeaders(200, 0);
-                        } else if (Pattern.matches("^/tasks/task/?id=\\d+$", path)) {
-                            String pathId = path.replaceFirst("/tasks/task/?id=", "");
-                            int id = parsePathId(pathId);
-                            if (id != -1) {
-                                String answer = gson.toJson(taskManager.getTask(id));
+                            if(httpExchange.getRequestURI().getQuery() == null) {
+                                String answer = gson.toJson(taskManager.getSubTasks());
                                 sendText(httpExchange, answer);
+                                System.out.println("Получены все подзадачи");
                                 httpExchange.sendResponseHeaders(200, 0);
-                                System.out.println("Задача " + id + " получена");
                             } else {
-                                System.out.println("Неверный id -" + id);
-                                httpExchange.sendResponseHeaders(405, 0);
+                                String query = httpExchange.getRequestURI().getQuery();
+                                int id = parsePathId(query.replaceFirst("id=", ""));
+                                if (id != -1) {
+                                    String answer = gson.toJson(taskManager.getSubTask(id));
+                                    sendText(httpExchange, answer);
+                                    httpExchange.sendResponseHeaders(200, 0);
+                                    System.out.println("Подзадача " + id + " получена");
+                                } else {
+                                    System.out.println("Неверный id -" + id);
+                                    httpExchange.sendResponseHeaders(405, 0);
+                                }
                             }
-                        } else if (Pattern.matches("^/tasks/epic/?id=\\d+$", path)) {
-                            String pathId = path.replaceFirst("/tasks/epic/?id=", "");
-                            int id = parsePathId(pathId);
-                            if (id != -1) {
-                                String answer = gson.toJson(taskManager.getEpic(id));
-                                sendText(httpExchange, answer);
-                                httpExchange.sendResponseHeaders(200, 0);
-                                System.out.println("Эпик " + id + " получен");
-                            } else {
-                                System.out.println("Неверный id -" + id);
-                                httpExchange.sendResponseHeaders(405, 0);
-                            }
-                        } else if (Pattern.matches("^/tasks/subtask/?id=\\d+$", path)) {
-                            String pathId = path.replaceFirst("/tasks/subtask/?id=", "");
-                            int id = parsePathId(pathId);
-                            if (id != -1) {
-                                String answer = gson.toJson(taskManager.getSubTask(id));
-                                sendText(httpExchange, answer);
-                                httpExchange.sendResponseHeaders(200, 0);
-                                System.out.println("Подзадача " + id + " получена");
-                            } else {
-                                System.out.println("Неверный id -" + id);
-                                httpExchange.sendResponseHeaders(405, 0);
-                            }
-                        } else if (Pattern.matches("^/tasks/subtask/epic/?id=\\d+$", path)) {
-                            String pathId = path.replaceFirst("/tasks/subtask/epic/?id=", "");
-                            int id = parsePathId(pathId);
+                        } else if (Pattern.matches("^/tasks/subtask/epic/$", path)) {
+                            String query = httpExchange.getRequestURI().getQuery();
+                            int id = parsePathId(query.replaceFirst("id=", ""));
                             if (id != -1) {
                                 String answer = gson.toJson(taskManager.getSubtasksByEpic(id));
                                 sendText(httpExchange, answer);
@@ -238,7 +243,7 @@ public class HttpTaskServer {
                     }
                 }
             } catch (Exception e) {
-                e.getMessage();
+                System.out.println(e.getMessage());
             } finally {
                 httpExchange.close();
             }
@@ -258,6 +263,5 @@ public class HttpTaskServer {
             h.sendResponseHeaders(200, resp.length);
             h.getResponseBody().write(resp);
         }
-
     }
 }

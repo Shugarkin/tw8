@@ -8,7 +8,6 @@ import java.net.http.HttpResponse;
 
 public class KVTaskClient {
     URI uri;
-    //http://localhost:8078 адрес сервера
 
     public KVTaskClient(URI uri) {
         this.uri = uri;
@@ -28,8 +27,6 @@ public class KVTaskClient {
     public void put(String key, String json) throws IOException, InterruptedException {// сбда должен приходить ключ и джисон и мотод должен загружать все на КВсервер
         URI uri1 = URI.create(uri+ "/save/" + key + "?API_TOKEN=" + getToken());
 
-
-        //POST /save/<ключ>?API_TOKEN=
         HttpRequest request = HttpRequest.newBuilder()
                 .POST(HttpRequest.BodyPublishers.ofString(json))
                 .uri(uri1)
@@ -43,7 +40,7 @@ public class KVTaskClient {
     }
 
     public String load(String key) throws IOException, InterruptedException {
-        //GET /load/<ключ>?API_TOKEN=
+
         URI uri1 = URI.create(uri + "/load/" + key + "?API_TOKEN=" + getToken());
 
         HttpRequest request = HttpRequest.newBuilder()

@@ -3,7 +3,6 @@ package service;
 import model.*;
 
 import java.io.*;
-import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -41,7 +40,7 @@ public class FileBackedTasksManager extends InMemoryTaskManager {
 
     }
 
-    private void historyToString(StringBuilder sb) {
+    protected void historyToString(StringBuilder sb) {
         List<Tasks> history = historyManager.getHistory();
         if (!history.isEmpty()) {
             sb.append(history.get(0).getId());
@@ -56,7 +55,7 @@ public class FileBackedTasksManager extends InMemoryTaskManager {
         Tasks task;
         String[] split = value.split(",");
         int id = Integer.parseInt(split[0]);
-        if(id > nextId) {
+        if(id >= nextId) {
             nextId = id + 1;
         }
         String title = split[2];
@@ -97,7 +96,7 @@ public class FileBackedTasksManager extends InMemoryTaskManager {
         return task;
     }
 
-    private void fileToHistory (String[] history) { //метод берет из листа с истории файла и добавляяет в обычную
+    protected void fileToHistory (String[] history) { //метод берет из листа с истории файла и добавляяет в обычную
         for (String s : history) {
             int key = Integer.valueOf(s);
             if (tasks.containsKey(key)) {
@@ -228,8 +227,6 @@ public class FileBackedTasksManager extends InMemoryTaskManager {
         save();
         return subTask;
     }
-
-
 }
 
 
